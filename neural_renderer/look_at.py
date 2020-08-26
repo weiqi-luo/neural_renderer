@@ -21,6 +21,8 @@ def look_at(vertices, eye, at=[0, 0, 0], up=[0, 1, 0]):
     elif torch.is_tensor(at):
         at.to(device)
 
+    if up is None:
+        up = [0,1,0]
     if isinstance(up, list) or isinstance(up, tuple):
         up = torch.tensor(up, dtype=torch.float32, device=device)
     elif isinstance(up, np.ndarray):
@@ -51,7 +53,7 @@ def look_at(vertices, eye, at=[0, 0, 0], up=[0, 1, 0]):
 
     # create rotation matrix: [bs, 3, 3]
     r = torch.cat((x_axis[:, None, :], y_axis[:, None, :], z_axis[:, None, :]), dim=1)
-
+    # print("\n\n rotation = \n", r)
     # apply
     # [bs, nv, 3] -> [bs, nv, 3] -> [bs, nv, 3]
     if vertices.shape != eye.shape:

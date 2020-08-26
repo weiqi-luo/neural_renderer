@@ -26,10 +26,11 @@ class Renderer(nn.Module):
 
         # camera
         self.camera_mode = camera_mode
-        if self.camera_mode == 'projection':
+        if self.camera_mode in ['projection', 'projection_fov']:
             self.K = K
             self.R = R
             self.t = t
+            self.fy = self.K[0,1,1]
             if isinstance(self.K, numpy.ndarray):
                 self.K = torch.cuda.FloatTensor(self.K)
             if isinstance(self.R, numpy.ndarray):
@@ -189,6 +190,9 @@ class Renderer(nn.Module):
             if orig_size is None:
                 orig_size = self.orig_size
             vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size)
+        # elif self.camera_mode == 'projection_fov':
+        #     fy = self.K[0,1,1]
+        #     vertices = nr.projection_fov(vertices, self.orig_size, fy, self.R, self.t)
 
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
@@ -197,7 +201,7 @@ class Renderer(nn.Module):
             self.background_color)
         return images
 
-    def render(self, vertices, faces, textures, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
+    def render(self, vertices, faces, textures, K=None, R=None, t=None, at=None, up=None, dist_coeffs=None, orig_size=None):
         # fill back
         if self.fill_back:
             faces = torch.cat((faces, faces[:, :, list(reversed(range(faces.shape[-1])))]), dim=1).detach()
@@ -216,7 +220,7 @@ class Renderer(nn.Module):
 
         # viewpoint transformation
         if self.camera_mode == 'look_at':
-            vertices = nr.look_at(vertices, self.eye)
+            vertices = nr.look_at(vertices, self.eye, up=up)
             # perspective transformation
             if self.perspective:
                 vertices = nr.perspective(vertices, angle=self.viewing_angle)
@@ -237,6 +241,10 @@ class Renderer(nn.Module):
             if orig_size is None:
                 orig_size = self.orig_size
             vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size)
+        
+        elif self.camera_mode == 'projection_fov':
+            fy = self.K[0,1,1]
+            vertices = nr.projection_fov(vertices, self.orig_size, fy, R, t)
 
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
@@ -244,3 +252,34 @@ class Renderer(nn.Module):
             faces, textures, self.image_size, self.anti_aliasing, self.near, self.far, self.rasterizer_eps,
             self.background_color)
         return out['rgb'], out['depth'], out['alpha']
+
+
+    def render_fov(self, mesh, R=None, t=None):
+        vertices, faces, textures = mesh
+
+        # fill back
+        if self.fill_back:
+            faces = torch.cat((faces, faces[:, :, list(reversed(range(faces.shape[-1])))]), dim=1).detach()
+            textures = torch.cat((textures, textures.permute((0, 1, 4, 3, 2, 5))), dim=1)
+
+        # lighting
+        faces_lighting = nr.vertices_to_faces(vertices, faces)
+        textures = nr.lighting(
+            faces_lighting,
+            textures,
+            self.light_intensity_ambient,
+            self.light_intensity_directional,
+            self.light_color_ambient,
+            self.light_color_directional,
+            self.light_direction)
+
+        # viewpoint transformation
+        vertices = nr.projection_fov(vertices, self.orig_size, self.fy, R, t)
+
+        # rasterization
+        faces = nr.vertices_to_faces(vertices, faces)
+        out = nr.rasterize_rgbad(
+            faces, textures, self.image_size, self.anti_aliasing, self.near, self.far, self.rasterizer_eps,
+            self.background_color)
+        return out['rgb'], out['depth'], out['alpha']
+
