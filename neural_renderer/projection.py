@@ -42,19 +42,27 @@ def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9):
     vertices = torch.stack([u, v, z], dim=-1)
     return vertices
 
-def projection_fov(vertices, orig_size, fy, R, t, eps=1e-5):
+def projection_fov(vertices, orig_size, fy, R, t, bias=None, eps=1e-5):
     # camera transform
     # vertices = torch.matmul(vertices, R.transpose(2,1)) + t
     if isinstance(t, np.ndarray):
         t = torch.cuda.FloatTensor(t)
+    if isinstance(bias, np.ndarray):
+        t = torch.cuda.FloatTensor(t)
     if isinstance(R, np.ndarray):
         R = torch.cuda.FloatTensor(R)
     t = t.view(-1,1,3)
-    vertices = vertices - t
-    vertices = torch.matmul(vertices, R.transpose(1,2))
-    
+
     # compute fov
     fov = torch.atan( orig_size/(2*fy) )
+    
+    vertices = vertices - t
+    vertices = torch.matmul(vertices, R.transpose(1,2))
+    if bias is not None:
+        radius = torch.norm(t,dim=2).view((-1,1,1))
+        bias_range = torch.tan(fov/2) * radius
+        bias = bias.view(-1,1,3) * bias_range
+        vertices = vertices - bias 
     # compute perspective distortion
     width = torch.tan(fov/2)
     z = vertices[:, :, 2]
