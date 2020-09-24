@@ -16,7 +16,7 @@ class Renderer(nn.Module):
                  near=0.1, far=100,
                  light_intensity_ambient=0.5, light_intensity_directional=0.5,
                  light_color_ambient=[1,1,1], light_color_directional=[1,1,1],
-                 light_direction=[0,1,0]):
+                 light_direction=[0,1,0], fov=None):
         super(Renderer, self).__init__()
         # rendering
         self.image_size = image_size
@@ -30,7 +30,6 @@ class Renderer(nn.Module):
             self.K = K
             self.R = R
             self.t = t
-            self.fy = self.K[0,1,1]
             if isinstance(self.K, numpy.ndarray):
                 self.K = torch.cuda.FloatTensor(self.K)
             if isinstance(self.R, numpy.ndarray):
@@ -62,6 +61,9 @@ class Renderer(nn.Module):
 
         # rasterization
         self.rasterizer_eps = 1e-3
+
+        # fov
+        self.fov = fov
 
     def forward(self, vertices, faces, textures=None, mode=None, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
         '''
@@ -239,10 +241,6 @@ class Renderer(nn.Module):
                 orig_size = self.orig_size
             vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size)
         
-        elif self.camera_mode == 'projection_fov':
-            fy = self.K[0,1,1]
-            vertices = nr.projection_fov(vertices, self.orig_size, fy, R, t)
-
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
         out = nr.rasterize_rgbad(
@@ -250,7 +248,8 @@ class Renderer(nn.Module):
             self.background_color)
         return out['rgb'], out['depth'], out['alpha']
 
-    def render_fov(self, mesh, R, t, bias=None):
+
+    def render_fov(self, mesh, R, t):
         vertices, faces, textures = mesh
 
         # fill back
@@ -270,7 +269,7 @@ class Renderer(nn.Module):
             self.light_direction)
 
         # viewpoint transformation
-        vertices = nr.projection_fov(vertices, self.orig_size, self.fy, R, t, bias)
+        vertices = nr.projection_fov(vertices, self.fov, R, t)
 
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
@@ -278,3 +277,4 @@ class Renderer(nn.Module):
             faces, textures, self.image_size, self.anti_aliasing, self.near, self.far, self.rasterizer_eps,
             self.background_color)
         return out['rgb'], out['depth'], out['alpha']
+

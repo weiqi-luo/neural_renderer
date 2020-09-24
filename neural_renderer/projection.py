@@ -1,6 +1,6 @@
 from __future__ import division
 
-import torch
+import torch,math
 import numpy as np
 
 def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9):
@@ -42,20 +42,16 @@ def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9):
     vertices = torch.stack([u, v, z], dim=-1)
     return vertices
 
-def projection_fov(vertices, orig_size, fy, R, t, bias=None, eps=1e-5):
+
+def projection_fov(vertices, fov, R, t, eps=1e-5):
     # camera transform
     # vertices = torch.matmul(vertices, R.transpose(2,1)) + t
     if isinstance(t, np.ndarray):
         t = torch.cuda.FloatTensor(t)
-    if isinstance(bias, np.ndarray):
-        t = torch.cuda.FloatTensor(t)
     if isinstance(R, np.ndarray):
         R = torch.cuda.FloatTensor(R)
     t = t.view(-1,1,3)
-
-    # compute fov
-    fov = torch.atan( orig_size/(2*fy) )
-
+    
     # ==== old
     vertices = vertices - t
     vertices = torch.matmul(vertices, R.transpose(1,2))
@@ -65,7 +61,7 @@ def projection_fov(vertices, orig_size, fy, R, t, bias=None, eps=1e-5):
     # ==== end
 
     # compute perspective distortion
-    width = torch.tan(fov/2)
+    width = math.tan(fov/2)
     z = vertices[:, :, 2]
     x = vertices[:, :, 0] / z / width
     y = vertices[:, :, 1] / z / width
