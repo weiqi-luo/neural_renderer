@@ -64,12 +64,6 @@ def projection_fov(vertices, orig_size, fy, R, t, bias=None, eps=1e-5):
     # vertices = vertices - t
     # ==== end
 
-    if bias is not None:
-        # radius = torch.norm(t,dim=2).view((-1,1,1))
-        # bias_range = torch.tan(fov/2) * radius
-        # bias = bias.view(-1,1,3) * bias_range
-        bias = bias.view(-1,1,3)
-        vertices = vertices - bias 
     # compute perspective distortion
     width = torch.tan(fov/2)
     z = vertices[:, :, 2]
