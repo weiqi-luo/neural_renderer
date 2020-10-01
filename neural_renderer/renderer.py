@@ -249,7 +249,7 @@ class Renderer(nn.Module):
         return out['rgb'], out['depth'], out['alpha']
 
 
-    def render_fov(self, mesh, R, t):
+    def render_fov(self, mesh, R, t, background_color=[0,0,0]):
         vertices, faces, textures = mesh
 
         # fill back
@@ -275,6 +275,6 @@ class Renderer(nn.Module):
         faces = nr.vertices_to_faces(vertices, faces)
         out = nr.rasterize_rgbad(
             faces, textures, self.image_size, self.anti_aliasing, self.near, self.far, self.rasterizer_eps,
-            self.background_color)
+            background_color=background_color)
         return out['rgb'], out['depth'], out['alpha']
 
