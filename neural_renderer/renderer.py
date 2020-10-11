@@ -251,6 +251,12 @@ class Renderer(nn.Module):
 
     def render_fov(self, mesh, R, t, background_color=[0,0,0]):
         vertices, faces, textures = mesh
+        
+        # expand dimension 
+        batch_size = R.shape[0]
+        vertices = vertices.expand(batch_size, *vertices.shape)
+        faces = faces.expand(batch_size, *faces.shape)
+        textures = textures.expand(batch_size, *textures.shape)
 
         # fill back
         if self.fill_back:
