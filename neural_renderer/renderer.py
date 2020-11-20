@@ -3,8 +3,7 @@ import math
 
 import torch
 import torch.nn as nn
-import numpy
-
+import numpy as np
 import neural_renderer as nr
 
 
@@ -30,11 +29,11 @@ class Renderer(nn.Module):
             self.K = K
             self.R = R
             self.t = t
-            if isinstance(self.K, numpy.ndarray):
+            if isinstance(self.K, np.ndarray):
                 self.K = torch.cuda.FloatTensor(self.K)
-            if isinstance(self.R, numpy.ndarray):
+            if isinstance(self.R, np.ndarray):
                 self.R = torch.cuda.FloatTensor(self.R)
-            if isinstance(self.t, numpy.ndarray):
+            if isinstance(self.t, np.ndarray):
                 self.t = torch.cuda.FloatTensor(self.t)
             self.dist_coeffs = dist_coeffs
             if dist_coeffs is None:
@@ -47,7 +46,6 @@ class Renderer(nn.Module):
             self.camera_direction = [0, 0, 1]
         else:
             raise ValueError('Camera mode has to be one of projection, look or look_at')
-
 
         self.near = near
         self.far = far
@@ -251,12 +249,19 @@ class Renderer(nn.Module):
 
     def render_fov(self, mesh, R, t, background_color=[0,0,0]):
         vertices, faces, textures = mesh
+        if isinstance(t, np.ndarray):
+            t = torch.cuda.FloatTensor(t)
+        if isinstance(R, np.ndarray):
+            R = torch.cuda.FloatTensor(R)
+        t = t.view(-1,1,3)
+        R = R.view(-1,3,3)
+        assert len(vertices.shape)==3
+        batch_size = max(t.shape[0], vertices.shape[0])
         
-        # expand dimension 
-        batch_size = R.shape[0]
-        vertices = vertices.expand(batch_size, *vertices.shape)
-        faces = faces.expand(batch_size, *faces.shape)
-        textures = textures.expand(batch_size, *textures.shape)
+        # expand dimension
+        vertices = vertices.expand(batch_size, *vertices.shape[1:])
+        faces = faces.expand(batch_size, *faces.shape[1:])
+        textures = textures.expand(batch_size, *textures.shape[1:])
 
         # fill back
         if self.fill_back:
@@ -283,4 +288,3 @@ class Renderer(nn.Module):
             faces, textures, self.image_size, self.anti_aliasing, self.near, self.far, self.rasterizer_eps,
             background_color=background_color)
         return out['rgb'], out['depth'], out['alpha']
-

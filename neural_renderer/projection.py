@@ -46,19 +46,7 @@ def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9):
 def projection_fov(vertices, fov, R, t, eps=1e-5):
     # camera transform
     # vertices = torch.matmul(vertices, R.transpose(2,1)) + t
-    if isinstance(t, np.ndarray):
-        t = torch.cuda.FloatTensor(t)
-    if isinstance(R, np.ndarray):
-        R = torch.cuda.FloatTensor(R)
-    t = t.view(-1,1,3)
-    
-    # ==== old
-    vertices = vertices - t
-    vertices = torch.matmul(vertices, R.transpose(1,2))
-    # ==== new
-    # vertices = torch.matmul(vertices, R.transpose(1,2))
-    # vertices = vertices - t
-    # ==== end
+    vertices = torch.matmul(vertices, R.transpose(1,2)) + t
 
     # compute perspective distortion
     width = math.tan(fov/2)
